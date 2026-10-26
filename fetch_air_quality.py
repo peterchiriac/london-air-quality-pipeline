@@ -1,4 +1,5 @@
 import requests 
+from datetime import datetime, timedelta
 
 # Constructing the API URL for a station
 def build_readings_url(site_code, species_code, start_date, end_date):
@@ -32,4 +33,46 @@ save_raw_response(filename, response)
 
 # Parse the response for validation
 
+def parse_response(response):
+    data = response.json()
+    return data 
 
+data = parse_response(response)
+
+def validate_readings(data, start_date, end_date):
+    readings = data.get("RawAQData").get("Data")
+    timestamps = []
+    #
+    if not readings:
+        print("No readings returned by the API. Validation cannot continue.")
+
+        return
+
+    for reading in readings:
+        s = reading["@MeasurementDateGMT"]
+        dt = datetime.fromisoformat(s) 
+        timestamps.append(dt)
+
+    timestamps.sort()
+
+    expected_timestamps = []
+
+    start = datetime.fromisoformat(f"{start_date}T00:00")
+    end = datetime.fromisoformat(f"{end_date}T00:00")
+    duration = int((end - start).total_seconds() // 3600)
+
+    for i in range(duration):
+        minutes_to_add = i * 60
+        expected_timestamp = start + timedelta(minutes=minutes_to_add)
+        expected_timestamps.append(expected_timestamp)
+
+    missing_timestamps = set(expected_timestamps) - set(timestamps)
+
+    print(len(timestamps))
+    print(len(expected_timestamps))
+    print((missing_timestamps))
+
+   
+
+   
+validate_readings(data, start_date, end_date)
