@@ -1,2 +1,3 @@
 .venv/
-bronze/ 
+bronze/*.json
+*.duckdb
