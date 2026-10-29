@@ -6,9 +6,10 @@ import duckdb
 def build_readings_url(site_code, species_code, start_date, end_date):
     return f"https://api.erg.ic.ac.uk/AirQuality/Data/SiteSpecies/SiteCode={site_code}/SpeciesCode={species_code}/StartDate={start_date}/EndDate={end_date}/Json"
 
+station_metadata = "https://api.erg.ic.ac.uk/AirQuality/Information/MonitoringSites/GroupName=London/Json"
 
 # Request air quality readings from the Environmental Research Group API
-def fetch_readings(url):
+def fetch_data(url):
     r = requests.get(url)
     r.raise_for_status()
     print("HTTP status", r.status_code)
@@ -103,13 +104,16 @@ for species_code in species_codes:
     print(f"Fetching from {fetch_start_date} to {end_date}")
     print(f"\nFetching {species_code} for station {site_code}")
     url = build_readings_url(site_code, species_code, fetch_start_date, end_date)
-    response = fetch_readings(url)
+    response = fetch_data(url)
 
     filename = f"bronze/readings_{site_code}_{species_code}_{fetch_start_date}_{end_date}.json"
     save_raw_response(filename, response)
 
     data = parse_response(response)
     validate_readings(data, fetch_start_date, end_date)
+# Fetch and preserve London monitoring station metadata in Bronze.
+response = fetch_data(station_metadata)
+save_raw_response("bronze/stations.json", response)
 
 
 

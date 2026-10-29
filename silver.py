@@ -18,6 +18,17 @@ con.execute("""CREATE TABLE IF NOT EXISTS readings(
     )
 """)
 
+con.execute("""CREATE TABLE IF NOT EXISTS sites(
+    site_code VARCHAR,
+    site_name VARCHAR,
+    site_type VARCHAR,
+    local_authority VARCHAR,
+    latitude DOUBLE,
+    longitude DOUBLE,
+    PRIMARY KEY(site_code)
+    )
+""")
+
 # Use parameterised SQL to insert readings.
 # Update existing records when incoming measurements are valid
 insert_sql = """
@@ -41,8 +52,34 @@ VALUES (
         quality_status = EXCLUDED.quality_status
         WHERE EXCLUDED.quality_status = 'valid'
 """
+
+insert_sites_sql = """
+INSERT INTO sites (
+    site_code,
+    site_name,
+    site_type,
+    local_authority,
+    latitude,
+    longitude
+    )
+VALUES (
+    $site_code,
+    $site_name,
+    $site_type,
+    $local_authority,
+    $latitude,
+    $longitude
+    )
+    ON CONFLICT (site_code)
+    DO UPDATE SET
+        site_name = EXCLUDED.site_name,
+        site_type = EXCLUDED.site_type,
+        local_authority = EXCLUDED.local_authority,
+        latitude = EXCLUDED.latitude,
+        longitude = EXCLUDED.longitude
+"""
 # Process every saved Bronze readings file.
-# Extract station and pollutant identifiers from the filename.
+# Extract sites and pollutant identifiers from the filename.
 for filename in sorted(
     Path("bronze").glob("readings_*.json"),
     key=lambda p: p.stat().st_mtime
@@ -85,6 +122,31 @@ for filename in sorted(
             "quality_status": quality_status
         }
         con.execute(insert_sql, params)
+
+# Load station metadata from Bronze.
+with open("bronze/stations.json", "r") as json_file:
+    data = json.load(json_file)
+
+sites = data["Sites"]["Site"]
+
+for site in sites:
+    site_code = site["@SiteCode"]
+    site_name = site["@SiteName"]
+    site_type = site["@SiteType"]
+    local_authority = site["@LocalAuthorityName"]
+    latitude = site["@Latitude"]
+    longitude = site["@Longitude"]
+
+    sites_params = {
+                "site_code": site_code,
+                "site_name": site_name,
+                "site_type": site_type,
+                "local_authority": local_authority,
+                "latitude": latitude,
+                "longitude": longitude
+            }
+
+    con.execute(insert_sites_sql, sites_params)
 
 con.close()
 
