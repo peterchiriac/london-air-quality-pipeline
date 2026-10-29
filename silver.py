@@ -19,7 +19,7 @@ con.execute("""CREATE TABLE IF NOT EXISTS readings(
 """)
 
 # Use parameterised SQL to insert readings.
-# Skip existing records to make repeated loads idempotent.
+# Update existing records when incoming measurements are valid
 insert_sql = """
 INSERT INTO readings (
     site_code,
@@ -35,11 +35,19 @@ VALUES (
     $value,
     $quality_status
     )
-    ON CONFLICT (site_code, species_code, measurement_timestamp) DO NOTHING
+    ON CONFLICT (site_code, species_code, measurement_timestamp)
+    DO UPDATE SET 
+        value = EXCLUDED.value,
+        quality_status = EXCLUDED.quality_status
+        WHERE EXCLUDED.quality_status = 'valid'
 """
-
-for filename in Path("bronze").glob("readings_*.json"):
-    parts = Path(filename).stem.split("_")
+# Process every saved Bronze readings file.
+# Extract station and pollutant identifiers from the filename.
+for filename in sorted(
+    Path("bronze").glob("readings_*.json"),
+    key=lambda p: p.stat().st_mtime
+):
+    parts = filename.stem.split("_")
     site_code = parts[1]
     species_code = parts[2]
 
@@ -78,5 +86,6 @@ for filename in Path("bronze").glob("readings_*.json"):
         }
         con.execute(insert_sql, params)
 
+con.close()
 
 
