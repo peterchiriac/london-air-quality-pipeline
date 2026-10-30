@@ -37,8 +37,8 @@ The project follows a three-layer Medallion architecture to separate data ingest
 - Updates existing observations when valid measurements are received.
 - Preserves missing and negative measurements with explicit quality flags.
 - Processes Bronze files chronologically by file modification time.
+- Station metadata ingestion has been implemented and is undergoing testing. The pollutant metadata table remains in development.
 
-Station and pollutant metadata tables are currently in development.
 
 ### Gold — Analysis-Ready Data
 
@@ -61,11 +61,12 @@ The three-day overlap is a design choice rather than a guarantee that all late-a
 
 ## How to Run
 
-The pipeline currently consists of three Python scripts:
+The pipeline consists of four Python scripts.
 
-1. `fetch_air_quality.py` — Retrieves and saves API observations to Bronze.
-2. `silver.py` — Transforms saved observations and loads them into DuckDB.
-3. `gold.py` — Generates daily pollutant averages.
+1. `init_db.py` - Initializes the DuckDB database and creates the required tables if they do not already exist.
+2. `fetch_air_quality.py` — Retrieves and saves API observations to Bronze.
+3. `silver.py` — Transforms saved observations and loads them into DuckDB.
+4. `gold.py` — Generates daily pollutant averages.
 
 ### Installation
 
@@ -75,16 +76,22 @@ Install the required dependencies:
 pip install -r requirements.txt
 ```
 
+### Initialize the database
+
+```bash
+python init_db.py
+```
+
+Run this once before executing the pipeline for the first time. It is safe to rerun because existing tables and data are preserved.
+
 ### Running the Pipeline
 
 Run the scripts in the following order:
 
 ```bash
-
 python fetch_air_quality.py
 python silver.py
 python gold.py
-
 ```
 
 ## Development Status
@@ -93,7 +100,7 @@ The historical and incremental ingestion pipeline is operational for NO₂ and O
 
 The remaining development work includes:
 
-- Adding station and pollutant metadata tables.
+- Testing station metadata ingestion and adding pollutant metadata.
 - Expanding ingestion to multiple monitoring stations.
 - Developing comparative analysis and visualisations.
 - Finalising end-to-end testing and documentation.
