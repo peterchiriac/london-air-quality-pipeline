@@ -27,6 +27,16 @@ con.execute("""
     )
 """)
 
+# Create pollutants table
+con.execute("""
+    CREATE TABLE IF NOT EXISTS pollutants (
+        species_code VARCHAR,
+        species_name VARCHAR,
+        unit VARCHAR,
+        PRIMARY KEY (species_code)
+    )
+""")
+
 con.close()
 
 print("Database initialized successfully.")

@@ -5,7 +5,7 @@ from pathlib import Path
 
 
 # Connect to DuckDB and create the Silver readings table if it doesn't exist.
-# The composite primary key uniquely identifies each station-pollutant-hour combination.
+# The composite primary key uniquely identifies each site-pollutant-hour combination.
 con = duckdb.connect("air_quality.duckdb")
 
 con.execute("""CREATE TABLE IF NOT EXISTS readings(
@@ -26,6 +26,15 @@ con.execute("""CREATE TABLE IF NOT EXISTS sites(
     latitude DOUBLE,
     longitude DOUBLE,
     PRIMARY KEY(site_code)
+    )
+""")
+
+con.execute("""
+    CREATE TABLE IF NOT EXISTS pollutants (
+        species_code VARCHAR,
+        species_name VARCHAR,
+        unit VARCHAR,
+        PRIMARY KEY (species_code)
     )
 """)
 
@@ -78,8 +87,9 @@ VALUES (
         latitude = EXCLUDED.latitude,
         longitude = EXCLUDED.longitude
 """
-# Process every saved Bronze readings file.
-# Extract sites and pollutant identifiers from the filename.
+
+# Process saved Bronze readings files in order of modification time (oldest first).
+# Extract site and pollutant codes from each filename.
 for filename in sorted(
     Path("bronze").glob("readings_*.json"),
     key=lambda p: p.stat().st_mtime
@@ -113,7 +123,7 @@ for filename in sorted(
             else:
                 quality_status = "valid"
 
-        # Insert the transformed reading with its station and pollutant identifiers.
+        # Insert the transformed reading with its site and pollutant identifiers.
         params = {
             "site_code": site_code,
             "species_code": species_code,
@@ -123,8 +133,8 @@ for filename in sorted(
         }
         con.execute(insert_sql, params)
 
-# Load station metadata from Bronze.
-with open("bronze/stations.json", "r") as json_file:
+# Load site metadata from Bronze.
+with open("bronze/sites.json", "r") as json_file:
     data = json.load(json_file)
 
 sites = data["Sites"]["Site"]
@@ -134,8 +144,14 @@ for site in sites:
     site_name = site["@SiteName"]
     site_type = site["@SiteType"]
     local_authority = site["@LocalAuthorityName"]
+    # Convert empty coordinates to None so DuckDB stores them as NULL.
     latitude = site["@Latitude"]
+    if latitude == "":
+        latitude = None
+
     longitude = site["@Longitude"]
+    if longitude =="":
+        longitude = None 
 
     sites_params = {
                 "site_code": site_code,
@@ -147,6 +163,38 @@ for site in sites:
             }
 
     con.execute(insert_sites_sql, sites_params)
+
+# Load pollutant metadata from Bronze.
+with open("bronze/species.json", "r") as json_file:
+    data = json.load(json_file)
+
+pollutants = data["AirQualitySpecies"]["Species"]
+
+# Insert pollutant metadata, updating existing records on subsequent runs.
+insert_pollutants_sql = """
+INSERT INTO pollutants (
+    species_code,
+    species_name
+)
+VALUES (
+    $species_code,
+    $species_name
+)
+ON CONFLICT (species_code)
+DO UPDATE SET
+    species_name = EXCLUDED.species_name
+"""
+
+for pollutant in pollutants:
+    species_code = pollutant["@SpeciesCode"]
+    species_name = pollutant["@SpeciesName"]
+
+    pollutant_params = {
+        "species_code": species_code,
+        "species_name": species_name
+    }
+
+    con.execute(insert_pollutants_sql, pollutant_params)
 
 con.close()
 

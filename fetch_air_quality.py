@@ -2,11 +2,13 @@ import requests
 from datetime import datetime, timedelta, timezone
 import duckdb
 
-# Constructing the API URL for a station
+# Constructing the API URL for a site
 def build_readings_url(site_code, species_code, start_date, end_date):
     return f"https://api.erg.ic.ac.uk/AirQuality/Data/SiteSpecies/SiteCode={site_code}/SpeciesCode={species_code}/StartDate={start_date}/EndDate={end_date}/Json"
 
-station_metadata = "https://api.erg.ic.ac.uk/AirQuality/Information/MonitoringSites/GroupName=London/Json"
+site_metadata = "https://api.erg.ic.ac.uk/AirQuality/Information/MonitoringSites/GroupName=London/Json"
+
+pollutants = "https://api.erg.ic.ac.uk/AirQuality/Information/Species/Json"
 
 # Request air quality readings from the Environmental Research Group API
 def fetch_data(url):
@@ -93,28 +95,32 @@ def get_start_date(site_code, species_code):
             
         return new_start
     
-site_code = "BQ7"
+site_codes = ["TH4", "TH6"]
 species_codes = ["NO2", "O3"]
-start_date = "2025-06-01"
+start_date = "2026-04-01"
 end_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
-# Main execution loop: fetch, save and validate readings for each pollutant.
-for species_code in species_codes:
-    fetch_start_date = get_start_date(site_code, species_code)
-    print(f"Fetching from {fetch_start_date} to {end_date}")
-    print(f"\nFetching {species_code} for station {site_code}")
-    url = build_readings_url(site_code, species_code, fetch_start_date, end_date)
-    response = fetch_data(url)
+# Main execution loop: fetch, save, and validate readings for each site–pollutant combination.
+for site_code in site_codes:
+    for species_code in species_codes:
+        fetch_start_date = get_start_date(site_code, species_code)
+        print(f"Fetching from {fetch_start_date} to {end_date}")
+        print(f"\nFetching {species_code} for site {site_code}")
+        url = build_readings_url(site_code, species_code, fetch_start_date, end_date)
+        response = fetch_data(url)
 
-    filename = f"bronze/readings_{site_code}_{species_code}_{fetch_start_date}_{end_date}.json"
-    save_raw_response(filename, response)
 
-    data = parse_response(response)
-    validate_readings(data, fetch_start_date, end_date)
-# Fetch and preserve London monitoring station metadata in Bronze.
-response = fetch_data(station_metadata)
-save_raw_response("bronze/stations.json", response)
+        filename = f"bronze/readings_{site_code}_{species_code}_{fetch_start_date}_{end_date}.json"
+        save_raw_response(filename, response)
 
+        data = parse_response(response)
+        validate_readings(data, fetch_start_date, end_date)
+# Fetch and preserve London monitoring site and pollutants metadata in Bronze.
+response = fetch_data(site_metadata)
+save_raw_response("bronze/sites.json", response)
+
+response = fetch_data(pollutants)
+save_raw_response("bronze/species.json", response)
 
 
   
