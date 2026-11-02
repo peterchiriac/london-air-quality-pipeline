@@ -174,24 +174,31 @@ pollutants = data["AirQualitySpecies"]["Species"]
 insert_pollutants_sql = """
 INSERT INTO pollutants (
     species_code,
-    species_name
+    species_name,
+    unit
 )
 VALUES (
     $species_code,
-    $species_name
+    $species_name,
+    $unit
 )
 ON CONFLICT (species_code)
 DO UPDATE SET
-    species_name = EXCLUDED.species_name
+    species_name = EXCLUDED.species_name,
+    unit = EXCLUDED.unit
 """
 
 for pollutant in pollutants:
     species_code = pollutant["@SpeciesCode"]
     species_name = pollutant["@SpeciesName"]
 
+    # Units verified against LAQN API responses.
+    unit = "µg/m³" if species_code in ("NO2", "O3") else None
+
     pollutant_params = {
         "species_code": species_code,
-        "species_name": species_name
+        "species_name": species_name,
+        "unit": unit
     }
 
     con.execute(insert_pollutants_sql, pollutant_params)

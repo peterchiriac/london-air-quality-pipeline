@@ -24,7 +24,6 @@ def save_raw_response(filename, r):
         json_file.write(r.content)
 
 
-
 # Parse the response for validation
 def parse_response(response):
     data = response.json()
@@ -39,6 +38,8 @@ def validate_readings(data, start_date, end_date):
         print("No readings returned by the API. Validation cannot continue.")
 
         return
+    missing_values = 0
+    negative_values = 0
     # Extract and parse timestamps from the API readings for validation.
     for reading in readings:
         s = reading["@MeasurementDateGMT"]
@@ -46,13 +47,13 @@ def validate_readings(data, start_date, end_date):
         dt = datetime.fromisoformat(s) 
         timestamps.append(dt)
         if not v:
-            print("Missing pollutant value at:", dt) 
+            missing_values += 1
         else: 
             v = float(v)
             if v < 0:
-                print(f"Negative value: {dt}: {v}")
+                negative_values += 1
 
-
+ 
     timestamps.sort()
 
     expected_timestamps = []
@@ -70,8 +71,9 @@ def validate_readings(data, start_date, end_date):
     missing_timestamps = set(expected_timestamps) - set(timestamps)
     if missing_timestamps:
         print(f"Missing {len(missing_timestamps)} hourly readings")
-        print(missing_timestamps)
 
+    print("Total missing values:", missing_values)
+    print("Total negative values:", negative_values)
     print("Actual timestamps:", len(timestamps))
     print("Expected timestamps:", len(expected_timestamps))
 

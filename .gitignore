@@ -1,4 +1,7 @@
 .venv/
-bronze/*.json
-*.duckdb
+air_quality_test.duckdb
+air_quality_pre_demo_backup.duckdb
+air_quality_backup.duckdb
 *.duckdb.wal
+bronze_demo/
+development_archive/
