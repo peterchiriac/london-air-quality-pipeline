@@ -1,6 +1,6 @@
 # London Pollution Fingerprints
 
-## Project Overview
+## What I built and who for
 
 London Pollution Fingerprints is a data pipeline that collects, validates, stores and transforms historical air quality measurements from the London Air Quality Network (LAQN).
 
@@ -9,6 +9,10 @@ The project enables environmental researchers to explore how nitrogen dioxide (N
 This first version helps researchers explore the relationship between NO₂ and O₃ across different monitoring environments, identify patterns in their concentrations over time, and generate hypotheses for further investigation.
 
 ## The data
+
+### Data Source Acknowledgement
+
+This information has been obtained from the Environmental Research Group of Imperial College London (https://www.imperial.ac.uk/school-public-health/environmental-research-group/), using data from the London Air Quality Network (https://www.londonair.org.uk). This information is licensed under the terms of the Open Government Licence.
 
 Data is retrieved from the London Air Quality Network (LAQN) API, maintained by the Environmental Research Group at Imperial College London.
 
@@ -42,7 +46,7 @@ The project follows a three-layer Medallion architecture to separate data ingest
 ### Silver — Structured Data
 
 * Transforms raw JSON observations into structured records stored in DuckDB.
-* Uses three related tables: sites (sites metadata), pollutants (pollutant metadata and units) and readings (hourly measurements).
+* Uses three related tables: sites (monitoring sites metadata), pollutants (pollutant metadata and units) and readings (hourly measurements).
 * Links readings to sites and pollutants through foreign keys.
 * Enforces a composite primary key (site_code, species_code, measurement_timestamp) to prevent duplicate observations.
 * Supports idempotent loading: repeated runs do not create duplicates, while valid incoming observations can update existing values.
@@ -54,12 +58,12 @@ The project follows a three-layer Medallion architecture to separate data ingest
 
 The pipeline includes several mechanisms to improve data reliability:
 
-- ***HTTP validation:** Checks for unsuccessful API requests.
-- ***Timestamp coverage:** Compares returned observations against expected hourly timestamps.
-- ***Missing values:** Retained and classified as `missing`.
-- ***Negative values:** Retained and classified as `negative`.
-- ***Duplicate prevention:** Enforced through a composite primary key.
-- ***Correction handling:** Valid incoming measurements can update existing records, while missing or negative incoming measurements cannot overwrite existing records.
+- **HTTP validation:** Checks for unsuccessful API requests.
+- **Timestamp coverage:** Compares returned observations against expected hourly timestamps.
+- **Missing values:** Retained and classified as `missing`.
+- **Negative values:** Retained and classified as `negative`.
+- **Duplicate prevention:** Enforced through a composite primary key.
+- **Correction handling:** Valid incoming measurements can update existing records, while missing or negative incoming measurements cannot overwrite existing records. Consequently, a previously valid measurement that is subsequently invalidated by the source will remain unchanged in Silver.
 
 The three-day overlap is a design choice rather than a guarantee that all late-arriving corrections will be captured.
 
@@ -83,7 +87,7 @@ The three-day overlap is a design choice rather than a guarantee that all late-a
 
 
 
-## How to Run It
+## How to run it
 
 The pipeline consists of five Python scripts.
 
@@ -92,6 +96,8 @@ The pipeline consists of five Python scripts.
 3. `silver.py` — Transforms saved observations and loads them into DuckDB.
 4. `gold.py` — Generates daily pollutant averages.
 5. `visualise.py` — Generates a chart comparing daily NO₂ and O₃ concentrations across the two monitoring stations, displaying incomplete days as gaps.
+
+The repository includes the collected historical data in Bronze and a DuckDB database containing the processed measurements. Running the pipeline again retrieves recent observations and updates the existing dataset without introducing duplicates.
 
 ### Installation
 
@@ -122,19 +128,18 @@ python gold.py
 python visualise.py
 ```
 
-What I would do next
+## What I would do next
 
-Given more development time, I would prioritise the following improvements:
+Given more development time, I would prioritise five improvements:
 
-* Automated recovery of incomplete data: Extend the timestamp coverage checks to identify missing intervals and automatically retry requests where appropriate. Retries would need to be limited to avoid unnecessary API calls, and persistent gaps would still be flagged.
-* Historical data revisions: The current three-day overlapping ingestion window captures recent corrections, but LAQN distinguishes between provisional and ratified measurements. A production pipeline could periodically refresh a longer historical window to incorporate corrections made after the three-day window.
-* More nuanced validation of negative measurements: The pipeline currently flags negative concentrations and excludes them from analytical averages. However, Defra’s guidance indicates that some negative measurements may be retained within acceptable detection limits. A production implementation would use instrument-specific validation thresholds rather than automatically excluding all negative values.
-* Historical station metadata: Track changes to station locations and classifications over time, allowing historical measurements to be interpreted using the correct station information.
-* Measurement versioning: Preserve previous values when corrected measurements arrive, making changes auditable rather than retaining only the latest accepted value in Silver.
-* More reliable ingestion ordering: Record when each API response was retrieved instead of relying on file modification times to determine processing order.
-* Additional environmental data: Incorporate weather and traffic information to investigate possible explanations for the observed relationships between NO₂ and O₃.
+* Automated recovery: Identify missing hourly observations and retry requests where appropriate, while respecting API limits.
+* Historical corrections: Periodically refresh older measurements to capture revisions outside the current three-day overlap.
+* Improved data validation: Investigate instrument-specific rules for negative concentrations rather than automatically excluding them.
+* Historical traceability: Track changes to site metadata and preserve previous versions of corrected measurements.
+* More robust ingestion: Record API retrieval timestamps instead of relying on file modification times to determine processing order.
 
-# Where AI helped
+
+## Where AI helped
 
 I used AI as a learning and development assistant throughout this project, particularly when working with unfamiliar data engineering concepts and implementation patterns.
 
